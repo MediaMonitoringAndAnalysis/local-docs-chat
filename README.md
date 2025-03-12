@@ -2,12 +2,18 @@
 
 
 
+# TODO
 
-1. Docs extraction
-2. Entry Extraction
-3. Entry Embedding
-4. RAG
-5. Chat
+1. install all the dependencies from the requirements.txt file:
+```bash
+pip install -r requirements.txt
+```
+
+
+
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+from ast import literal_eval
 import streamlit as st
 from embeddings_generator import EmbeddingsGenerator
 from data_generation import (
@@ -5,7 +6,15 @@ from data_generation import (
     postprocess_RAG_answers,
     default_response,
 )
-from llm_multiprocessing_inference import get_answers
+from src.frontend.utils import _get_projects_subprojects_structure, _custom_title
+from llm_multiprocessing_inference import (
+    get_answers,
+    get_answers_stream,
+    replace_unneeded_characters,
+    postprocess_structured_output,
+)
+import pandas as pd
+import os
 
 st.set_page_config(page_title="Local Docs Chat", layout="wide")
 
@@ -15,28 +24,119 @@ possibly_added_columns = [
     "Document Title",
     "Document URL",
     "Document Source",
+    "entry_fig_path",
+    "Entry Type",
 ]
 
+if "chat_data" not in st.session_state:
+    st.session_state["chat_data"] = pd.read_csv(
+        os.path.join("data", "dataset", "entries_dataset.csv")
+    )
+    st.session_state["chat_data"]["Embeddings"] = st.session_state["chat_data"][
+        "Embeddings"
+    ].apply(literal_eval)
+    st.session_state["projects_subprojects_structure"] = (
+        _get_projects_subprojects_structure()
+    )
+    if "entry_id" not in st.session_state["chat_data"].columns:
+        st.session_state["chat_data"]["entry_id"] = [
+            i for i in range(len(st.session_state["chat_data"]))
+        ]
 
 embeddings_generator = EmbeddingsGenerator()
 
+# TODO: add entry type to the context and add it to the df_relevant_columns
+df_relevant_columns = [
+    "entry_id",
+    "Entry Type",
+    "Extracted Entries",
+    "Document Publishing Date",
+    "Document Title",
+    "Document Source",
+]
 
-def _custom_title(
-    title: str,
-    margin_top: int,
-    margin_bottom: int,
-    font_size: int = 20,
-    color: str = "black",
-):
-    # st.markdown(, unsafe_allow_html=True)
 
-    st.markdown(
-        f"""<div style="margin-top: {margin_top}px; margin-bottom: {margin_bottom}px; font-size: {font_size}px; color: {color}; font-weight: bold"> {title} </div>""",
-        unsafe_allow_html=True,
+def custom_filter_function(stream_answer):
+    """
+    Determine if the streaming chunk is relevant for display.
+
+    This function analyzes partial JSON responses during streaming to determine
+    if the chunk contains content from the 'answer' field that should be displayed.
+
+    Args:
+        stream_answer (str): A chunk of the streaming response
+
+    Returns:
+        bool: True if the chunk is relevant for streaming display, False otherwise
+    """
+    # print("stream_answer", stream_answer)
+    # Check if we're in the answer field
+    if '"answer":' in stream_answer:
+
+        # If we're in the middle of the answer field but before relevancy
+        if '",' in stream_answer:
+            # We're still in the answer field, so it's relevant
+            return False
+        else:
+            # print(stream_answer)
+            return True
+
+    else:
+        # If we can't clearly identify that we're in the answer field,
+        # consider it not relevant for streaming display
+        return False
+
+
+def _generate_answers(prompts, context_df):
+    answers_stream, answers = get_answers_stream(
+        prompts=prompts,
+        response_type="structured",
+        api_pipeline="Ollama",
+        model="deepseek-r1:7b-qwen-distill-q4_K_M",
+        default_response=default_response,
+        custom_filter_function=None,
+        # show_progress_bar=False
     )
+    st.write_stream(answers_stream)
+    
+    
+    # answers = get_answers(
+    #     prompts=prompts,
+    #     response_type="structured",
+    #     # api_pipeline="Ollama",
+    #     # model="llama3.1:8b-text-q5_K_M",
+    #     default_response=default_response,
+    #     # show_progress_bar=False,
+    #     api_pipeline="OpenAI",
+    #     model="gpt-4o-mini",
+    #     api_key=os.getenv("openai_api_key"),
+    # )
 
 
-def qa_information_retrieval():
+    st.markdown(answers)
+    
+    # if answers["answer"] != "-":
+    final_answer = postprocess_RAG_answers(
+        answers=answers,
+        context_df=context_df,
+        df_relevant_columns=df_relevant_columns,
+    )[0]
+    # else:
+    #     final_answer = {
+    #         "final_answer": "-",
+    #         "final_relevance": 0.0,
+    #         "final_context": [],
+    #     }
+
+    # st.markdown(final_answer)
+
+    return final_answer
+
+
+@st.fragment
+def qa_information_retrieval(qa_df):
+
+    # st.dataframe(qa_df)
 
     if "qa_clicks" not in st.session_state:
         st.session_state["qa_clicks"] = 0
@@ -52,49 +152,102 @@ def qa_information_retrieval():
         st.session_state["qa_clicks"] += 1
 
     if st.session_state["qa_clicks"] > 0:
-        with st.spinner("Processing your question... It will take 10-15 seconds."):
+        with st.spinner("Processing your question..."):
 
             question_embedding = {
                 question_input: embeddings_generator([question_input])
             }
 
-            context_df, prompts = generate_context_and_prompts(
+            prompts, context_df = generate_context_and_prompts(
                 qa_df=qa_df,
                 question_embeddings=question_embedding,
-                n_kept_entries=10,
-                show_progress_bar=True,
+                n_kept_entries=5,
+                text_col="Extracted Entries",
+                # show_progress_bar=True,
             )
-
-            answers = get_answers(
-                prompts=prompts,
-                response_type="structured",
-                model="gpt-4o-mini",
-                default_response=default_response,
-                show_progress_bar=False,
-            )[0]
-
-            # final_answer = postprocess_RAG_answers(
-            #     answers=answers,
-            #     context_df=context_df,
-            #     text_col="Extraction Text",
-            # )
-
-            # final_answer_relevance = final_answer["relevance"]
-            # final_answer_text = final_answer["answer"]
-
-            final_answer_relevance = 0.5
-            final_answer_text = "This is a test answer"
+            
+        _custom_title("Reasoning...", margin_top=5, margin_bottom=-20, font_size=25)
+        final_answer = _generate_answers(prompts, context_df)
 
         with st.container():
-            _custom_title(
-                f"Key Message (Relevance: {int(100*final_answer_relevance)}%)",
-                margin_top=5,
-                margin_bottom=-20,
-                font_size=25,
-            )
+
             for _ in range(1):
                 st.write("")
-            st.markdown(final_answer_text)
+
+            answer_col, context_col = st.columns([0.4, 0.6])
+            with answer_col:
+                final_answer_relevance = final_answer["final_relevance"]
+                _custom_title(
+                    f"Key Message (Confidence: {int(100*final_answer_relevance)}%)",
+                    margin_top=5,
+                    margin_bottom=-20,
+                    font_size=25,
+                )
+                
+    
+                final_answer_text = final_answer["final_answer"]
+                st.markdown(final_answer_text)
+                
+                # st.markdown(f"**Confidence: {int(100*final_answer_relevance)}%**")
+                # st.markdown(final_answer_text)
+
+            with context_col:
+                _custom_title(
+                    "Evidence",
+                    margin_top=5,
+                    margin_bottom=-20,
+                    font_size=25,
+                )
+                
+                final_answer_context = final_answer.get("final_context", [])
+                if len(final_answer_context) > 0:
+                    final_answer_context_df = pd.DataFrame(final_answer_context)
+                    # st.dataframe(final_answer_context_df)
+                    unique_entries_count = (
+                        final_answer_context_df["entry_id"].value_counts().to_dict()
+                    )
+                    for entry_id, count in unique_entries_count.items():
+                        df_one_entry = final_answer_context_df[
+                            final_answer_context_df["entry_id"] == entry_id
+                        ].iloc[0]
+                        extracted_entries = df_one_entry["Extracted Entries"]
+                        document_title = df_one_entry["Document Title"]
+                        document_publishing_date = df_one_entry[
+                            "Document Publishing Date"
+                        ]
+                        document_source = df_one_entry["Document Source"]
+                        shown_str = f"* {extracted_entries} ({document_title}, {document_publishing_date}, {document_source}) - **Number of times mentioned: {count}**\n"
+
+                    st.markdown(shown_str)
 
 
-qa_information_retrieval()
+@st.fragment
+def main_chat():
+    projets_col, _, chat_col = st.columns([0.2, 0.02, 0.78])
+    with projets_col:
+        projects_selected = st.selectbox(
+            "Select a project",
+            sorted(list(st.session_state["projects_subprojects_structure"].keys())),
+        )
+        subprojects_selected = st.selectbox(
+            "Select a subproject",
+            sorted(
+                st.session_state["projects_subprojects_structure"][projects_selected]
+            ),
+        )
+
+        st.markdown(f"#### {projects_selected} - {subprojects_selected}")
+
+    with chat_col:
+        qa_df = st.session_state["chat_data"][
+            (st.session_state["chat_data"]["project_name"] == projects_selected)
+            & (
+                st.session_state["chat_data"]["sub_project_name"]
+                == subprojects_selected
+            )
+        ]
+        qa_information_retrieval(qa_df)
+        # TODO: when evidence refers to a table or an image, display it here
+
+
+main_chat()

@@ -19,7 +19,7 @@ def _extract_docs_data(
     Extract data from documents
     """
     
-    print(f"To be extracted docs: {to_be_extrcted_docs}")
+    # print(f"To be extracted docs: {to_be_extrcted_docs}")
 
     n_to_be_extrcted_docs = 0
     for project_name, sub_projects in to_be_extrcted_docs.items():
@@ -56,6 +56,10 @@ def _extract_docs_data(
                     tqdm_bar.update(1)
 
                     final_data.to_csv(output_path, index=False)
+                    
+    final_data["doc_id"] = [i for i in range(len(final_data))]
+
+    final_data.to_csv(output_path, index=False)
 
     return final_data
 
@@ -90,7 +94,7 @@ def extract_documents_text(docs_folder_path: os.PathLike, output_path: os.PathLi
                         and os.path.splitext(f)[1] in supported_file_extensions
                         and f not in extracted_docs_names
                     ]
-                    print(f"Docs paths sub project: {docs_paths_sub_project}")
+                    # print(f"Docs paths sub project: {docs_paths_sub_project}")
                     to_be_extrcted_docs[project_name][sub_project_name].extend(
                         docs_paths_sub_project
                     )

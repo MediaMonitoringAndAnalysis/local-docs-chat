@@ -32,6 +32,8 @@ def main(
             raw_text_column=raw_text_column,
             entries_column=entries_column,
         )
+        entries_data["entry_id"] = [i for i in range(len(entries_data))]
+        entries_data = entries_data.drop(columns=[raw_text_column])
         entries_data.to_csv(entries_output_path, index=False)
     else:
         entries_data = pd.read_csv(entries_output_path)
@@ -39,7 +41,7 @@ def main(
     if embeddings_column not in entries_data.columns:
         entries_data = _add_embeddings_column(
             entries_data,
-            text_column=raw_text_column,
+            text_column=entries_column,
             embeddings_column=embeddings_column,
         )
         entries_data.to_csv(entries_output_path, index=False)

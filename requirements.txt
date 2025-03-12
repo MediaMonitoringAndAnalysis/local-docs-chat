@@ -1,0 +1,5 @@
+git+https://github.com/MediaMonitoringAndAnalysis/embeddings_generator.git
+git+https://github.com/MediaMonitoringAndAnalysis/llm_multiprocessing_inference.git
+git+https://github.com/MediaMonitoringAndAnalysis/data_generation.git
+git+https://github.com/MediaMonitoringAndAnalysis/EntryExtraction.git
+git+https://github.com/MediaMonitoringAndAnalysis/DocumentsProcessing.git
