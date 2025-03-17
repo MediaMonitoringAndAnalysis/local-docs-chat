@@ -12,5 +12,6 @@ def apply_entry_extraction(
     input_data[entries_column] = entries
     
     input_data = input_data.explode(entries_column)
+    input_data = input_data[input_data[entries_column].str.len() > 5]
 
     return input_data

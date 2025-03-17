@@ -18,20 +18,14 @@ import os
 
 st.set_page_config(page_title="Local Docs Chat", layout="wide")
 
-possibly_added_columns = [
-    "Extraction Text",
-    "Document Publishing Date",
-    "Document Title",
-    "Document URL",
-    "Document Source",
-    "entry_fig_path",
-    "Entry Type",
-]
 
 if "chat_data" not in st.session_state:
     st.session_state["chat_data"] = pd.read_csv(
         os.path.join("data", "dataset", "entries_dataset.csv")
     )
+    st.session_state["chat_data"] = st.session_state["chat_data"][
+        st.session_state["chat_data"]["Entry Type"] != "PDF Text"
+    ]
     st.session_state["chat_data"]["Embeddings"] = st.session_state["chat_data"][
         "Embeddings"
     ].apply(literal_eval)
@@ -45,7 +39,7 @@ if "chat_data" not in st.session_state:
 
 embeddings_generator = EmbeddingsGenerator()
 
-# TODO: add entry type to the context and add it to the df_relevant_columns
+
 df_relevant_columns = [
     "entry_id",
     "Entry Type",
@@ -53,6 +47,7 @@ df_relevant_columns = [
     "Document Publishing Date",
     "Document Title",
     "Document Source",
+    "entry_fig_path",
 ]
 
 
@@ -166,8 +161,10 @@ def qa_information_retrieval(qa_df):
                 # show_progress_bar=True,
             )
             
+            
         _custom_title("Reasoning...", margin_top=5, margin_bottom=-20, font_size=25)
         final_answer = _generate_answers(prompts, context_df)
+        
 
         with st.container():
 
@@ -206,6 +203,7 @@ def qa_information_retrieval(qa_df):
                     unique_entries_count = (
                         final_answer_context_df["entry_id"].value_counts().to_dict()
                     )
+
                     for entry_id, count in unique_entries_count.items():
                         df_one_entry = final_answer_context_df[
                             final_answer_context_df["entry_id"] == entry_id
@@ -216,9 +214,14 @@ def qa_information_retrieval(qa_df):
                             "Document Publishing Date"
                         ]
                         document_source = df_one_entry["Document Source"]
+                        if df_one_entry["Entry Type"] in ["PDF Table", "PDF Picture"]:
+                            st.image(df_one_entry["entry_fig_path"])
+                        
                         shown_str = f"* {extracted_entries} ({document_title}, {document_publishing_date}, {document_source}) - **Number of times mentioned: {count}**\n"
 
                     st.markdown(shown_str)
+                    
+            
 
 
 @st.fragment

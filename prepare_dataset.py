@@ -16,6 +16,9 @@ def main(
     raw_text_column: str,
     entries_column: str,
     embeddings_column: str,
+    model_name: str,
+    inference_pipeline: str,
+    api_key: str,
 ):
 
     os.makedirs(output_folder_path, exist_ok=True)
@@ -23,7 +26,9 @@ def main(
     documents_output_path = os.path.join(output_folder_path, documents_file_name)
     entries_output_path = os.path.join(output_folder_path, entries_file_name)
 
-    extract_documents_text(docs_folder_path, documents_output_path)
+    extract_documents_text(
+        docs_folder_path, documents_output_path, model_name, inference_pipeline, api_key
+    )
 
     if not os.path.exists(entries_output_path):
         documents_raw_data = pd.read_csv(documents_output_path)
@@ -58,6 +63,9 @@ if __name__ == "__main__":
     parser.add_argument("--raw_text_column", type=str, default="text")
     parser.add_argument("--entries_column", type=str, default="Extracted Entries")
     parser.add_argument("--embeddings_column", type=str, default="Embeddings")
+    parser.add_argument("--model_name", type=str, default="gemma3:12b-it-q4_K_M")
+    parser.add_argument("--inference_pipeline", type=str, default="Ollama")
+    parser.add_argument("--api_key", type=str, default=None)
 
     args = parser.parse_args()
 
@@ -69,4 +77,7 @@ if __name__ == "__main__":
         args.raw_text_column,
         args.entries_column,
         args.embeddings_column,
+        args.model_name,
+        args.inference_pipeline,
+        args.api_key,
     )
