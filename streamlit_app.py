@@ -23,9 +23,9 @@ if "chat_data" not in st.session_state:
     st.session_state["chat_data"] = pd.read_csv(
         os.path.join("data", "dataset", "entries_dataset.csv")
     )
-    st.session_state["chat_data"] = st.session_state["chat_data"][
-        st.session_state["chat_data"]["Entry Type"] != "PDF Text"
-    ]
+    # st.session_state["chat_data"] = st.session_state["chat_data"][
+    #     st.session_state["chat_data"]["Entry Type"] != "PDF Text"
+    # ]
     st.session_state["chat_data"]["Embeddings"] = st.session_state["chat_data"][
         "Embeddings"
     ].apply(literal_eval)
@@ -87,14 +87,13 @@ def _generate_answers(prompts, context_df):
         prompts=prompts,
         response_type="structured",
         api_pipeline="Ollama",
-        model="deepseek-r1:7b-qwen-distill-q4_K_M",
+        model="deepseek-r1:14b-qwen-distill-q4_K_M",
         default_response=default_response,
         custom_filter_function=None,
         # show_progress_bar=False
     )
     st.write_stream(answers_stream)
-    
-    
+
     # answers = get_answers(
     #     prompts=prompts,
     #     response_type="structured",
@@ -107,9 +106,8 @@ def _generate_answers(prompts, context_df):
     #     api_key=os.getenv("openai_api_key"),
     # )
 
-
     st.markdown(answers)
-    
+
     # if answers["answer"] != "-":
     final_answer = postprocess_RAG_answers(
         answers=answers,
@@ -156,15 +154,13 @@ def qa_information_retrieval(qa_df):
             prompts, context_df = generate_context_and_prompts(
                 qa_df=qa_df,
                 question_embeddings=question_embedding,
-                n_kept_entries=5,
+                n_kept_entries=4,
                 text_col="Extracted Entries",
                 # show_progress_bar=True,
             )
-            
-            
+
         _custom_title("Reasoning...", margin_top=5, margin_bottom=-20, font_size=25)
         final_answer = _generate_answers(prompts, context_df)
-        
 
         with st.container():
 
@@ -180,11 +176,10 @@ def qa_information_retrieval(qa_df):
                     margin_bottom=-20,
                     font_size=25,
                 )
-                
-    
+
                 final_answer_text = final_answer["final_answer"]
                 st.markdown(final_answer_text)
-                
+
                 # st.markdown(f"**Confidence: {int(100*final_answer_relevance)}%**")
                 # st.markdown(final_answer_text)
 
@@ -195,7 +190,7 @@ def qa_information_retrieval(qa_df):
                     margin_bottom=-20,
                     font_size=25,
                 )
-                
+
                 final_answer_context = final_answer.get("final_context", [])
                 if len(final_answer_context) > 0:
                     final_answer_context_df = pd.DataFrame(final_answer_context)
@@ -204,6 +199,7 @@ def qa_information_retrieval(qa_df):
                         final_answer_context_df["entry_id"].value_counts().to_dict()
                     )
 
+                    images_paths = []
                     for entry_id, count in unique_entries_count.items():
                         df_one_entry = final_answer_context_df[
                             final_answer_context_df["entry_id"] == entry_id
@@ -215,14 +211,17 @@ def qa_information_retrieval(qa_df):
                         ]
                         document_source = df_one_entry["Document Source"]
                         if df_one_entry["Entry Type"] in ["PDF Table", "PDF Picture"]:
-                            st.image(df_one_entry["entry_fig_path"])
-                        
-                        shown_str = f"* {extracted_entries} ({document_title}, {document_publishing_date}, {document_source}) - **Number of times mentioned: {count}**\n"
+                            images_paths.append(df_one_entry["entry_fig_path"])
+
+                        shown_str = f"* {extracted_entries} ({document_title}, {document_publishing_date}, {document_source}) - **Number of times mentioned: {count}**"
 
                     st.markdown(shown_str)
-                    
-            
 
+                    for image_path in list(set(images_paths)):
+                        st.image(image_path)
+
+def _format_func(x):
+    return x.split("/")[-1].split(".")[0]
 
 @st.fragment
 def main_chat():
@@ -238,8 +237,48 @@ def main_chat():
                 st.session_state["projects_subprojects_structure"][projects_selected]
             ),
         )
-
+        documents_one_subproject = st.session_state["chat_data"][
+            (st.session_state["chat_data"]["project_name"] == projects_selected)
+            & (
+                st.session_state["chat_data"]["sub_project_name"]
+                == subprojects_selected
+            )
+        ]
+        document_names = documents_one_subproject["docs_name"].unique()
+        
+        chosen_document = st.selectbox(
+            "Select documents",
+            document_names,
+            format_func=_format_func,
+        )
+        documents_one_subproject = documents_one_subproject[
+            documents_one_subproject["docs_name"] == chosen_document
+        ]
+        
         st.markdown(f"#### {projects_selected} - {subprojects_selected}")
+        st.markdown(f"**Document Name**: <a href='{chosen_document}' target='_blank'>{_format_func(chosen_document)}</a>", unsafe_allow_html=True)
+
+        for col in ["Document Publishing Date", "Document Source", "Document Title"]:
+            val = documents_one_subproject[col].iloc[0]
+            if col == "Document Source":
+                val = ", ".join(literal_eval(val))
+            st.markdown(f"**{col}**: {val}")
+            
+        interviewees = documents_one_subproject["Interviewee"].iloc[0]
+        interviewees = literal_eval(interviewees)
+        
+        if len(interviewees) > 0 and isinstance(interviewees[0], dict):
+            st.markdown(f"**Interviewees:**")
+            for interviewee in interviewees:
+                name = interviewee["name"]
+                role = interviewee["role"]
+                organization = interviewee["organization"]
+                location = interviewee["location"]
+                st.markdown(f"* **{name}** ({role}, {organization}, {location})".replace(", -", ""))
+        else:
+            st.markdown(f"**Interviewees Not Found**")
+        
+
 
     with chat_col:
         qa_df = st.session_state["chat_data"][
@@ -250,7 +289,6 @@ def main_chat():
             )
         ]
         qa_information_retrieval(qa_df)
-        # TODO: when evidence refers to a table or an image, display it here
 
 
 main_chat()

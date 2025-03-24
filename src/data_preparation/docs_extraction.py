@@ -42,18 +42,22 @@ def _extract_docs_data(
                     )
                     # print(f"Extracting data from {doc_file_name}")
                     # print(f"Doc folder path: {doc_folder_path}")
-                    data_sub_project = documents_raw_data_extractor(
-                        file_name=doc_file_name,
-                        doc_folder_path=doc_folder_path,
-                        figures_saving_path=figures_saving_path,
-                        extract_metadata_bool=True,
-                        extract_figures_bool=True,
-                    )
-                    data_sub_project["project_name"] = project_name
-                    data_sub_project["sub_project_name"] = sub_project_name
-                    data_sub_project["docs_name"] = doc_path
-                    final_data = pd.concat([final_data, data_sub_project])
-                    extracted_docs_names.append(os.path.basename(doc_path))
+                    try:
+                        data_sub_project = documents_raw_data_extractor(
+                            file_name=doc_file_name,
+                            doc_folder_path=doc_folder_path,
+                            figures_saving_path=figures_saving_path,
+                            metadata_extraction_type="interview",
+                            extract_figures_bool=True,
+                        )
+                        data_sub_project["project_name"] = project_name
+                        data_sub_project["sub_project_name"] = sub_project_name
+                        data_sub_project["docs_name"] = doc_path
+                        final_data = pd.concat([final_data, data_sub_project])
+                        extracted_docs_names.append(os.path.basename(doc_path))
+                    except Exception as e:
+                        print(f"Error extracting data from {doc_file_name}: {e}")
+                        
                     tqdm_bar.update(1)
 
                     final_data.to_csv(output_path, index=False)
@@ -112,7 +116,6 @@ def extract_documents_text(
                         docs_paths_sub_project
                     )
 
-    # assert False
     _extract_docs_data(
         documents_raw_data_extractor,
         final_data,

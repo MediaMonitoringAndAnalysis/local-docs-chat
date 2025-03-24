@@ -7,6 +7,7 @@ def _get_projects_subprojects_structure():
     for project in projects:
         subprojects = st.session_state["chat_data"][st.session_state["chat_data"]["project_name"] == project]["sub_project_name"].unique()
         final_structure[project] = subprojects
+    # st.write(final_structure)
     return final_structure
 
 def _custom_title(
