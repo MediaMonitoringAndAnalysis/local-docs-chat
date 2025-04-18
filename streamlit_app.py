@@ -106,7 +106,7 @@ def _generate_answers(prompts, context_df):
     #     api_key=os.getenv("openai_api_key"),
     # )
 
-    st.markdown(answers)
+    # st.markdown(answers)
 
     # if answers["answer"] != "-":
     final_answer = postprocess_RAG_answers(
@@ -154,7 +154,7 @@ def qa_information_retrieval(qa_df):
             prompts, context_df = generate_context_and_prompts(
                 qa_df=qa_df,
                 question_embeddings=question_embedding,
-                n_kept_entries=4,
+                n_kept_entries=5,
                 text_col="Extracted Entries",
                 # show_progress_bar=True,
             )
@@ -200,6 +200,7 @@ def qa_information_retrieval(qa_df):
                     )
 
                     images_paths = []
+                    shown_str = ""
                     for entry_id, count in unique_entries_count.items():
                         df_one_entry = final_answer_context_df[
                             final_answer_context_df["entry_id"] == entry_id
@@ -213,7 +214,7 @@ def qa_information_retrieval(qa_df):
                         if df_one_entry["Entry Type"] in ["PDF Table", "PDF Picture"]:
                             images_paths.append(df_one_entry["entry_fig_path"])
 
-                        shown_str = f"* {extracted_entries} ({document_title}, {document_publishing_date}, {document_source}) - **Number of times mentioned: {count}**"
+                        shown_str += f"* {extracted_entries} ({document_title}, {document_publishing_date}, {document_source}) - **Number of times mentioned: {count}**\n"
 
                     st.markdown(shown_str)
 
@@ -246,48 +247,44 @@ def main_chat():
         ]
         document_names = documents_one_subproject["docs_name"].unique()
         
-        chosen_document = st.selectbox(
+        chosen_documents = st.multiselect(
             "Select documents",
             document_names,
             format_func=_format_func,
         )
-        documents_one_subproject = documents_one_subproject[
-            documents_one_subproject["docs_name"] == chosen_document
+        chat_documents = documents_one_subproject[
+            documents_one_subproject["docs_name"].isin(chosen_documents)
         ]
         
         st.markdown(f"#### {projects_selected} - {subprojects_selected}")
-        st.markdown(f"**Document Name**: <a href='{chosen_document}' target='_blank'>{_format_func(chosen_document)}</a>", unsafe_allow_html=True)
-
-        for col in ["Document Publishing Date", "Document Source", "Document Title"]:
-            val = documents_one_subproject[col].iloc[0]
-            if col == "Document Source":
-                val = ", ".join(literal_eval(val))
-            st.markdown(f"**{col}**: {val}")
+        for chosen_document in chosen_documents:
+            st.markdown(f"**Document Name**: <a href='{chosen_document}' target='_blank'>{_format_func(chosen_document)}</a>", unsafe_allow_html=True)
+            one_doc_df = chat_documents[chat_documents["docs_name"] == chosen_document]
+            for col in ["Document Publishing Date", "Document Source", "Document Title"]:
+                val = one_doc_df[col].iloc[0]
+                if col == "Document Source":
+                    val = ", ".join(literal_eval(val))
+                st.markdown(f"**{col}**: {val}")
             
-        interviewees = documents_one_subproject["Interviewee"].iloc[0]
-        interviewees = literal_eval(interviewees)
-        
-        if len(interviewees) > 0 and isinstance(interviewees[0], dict):
-            st.markdown(f"**Interviewees:**")
-            for interviewee in interviewees:
-                name = interviewee["name"]
-                role = interviewee["role"]
-                organization = interviewee["organization"]
-                location = interviewee["location"]
-                st.markdown(f"* **{name}** ({role}, {organization}, {location})".replace(", -", ""))
-        else:
-            st.markdown(f"**Interviewees Not Found**")
+            interviewees = one_doc_df["Interviewee"].iloc[0]
+            interviewees = literal_eval(interviewees)
+            
+            if len(interviewees) > 0 and isinstance(interviewees[0], dict):
+                st.markdown(f"**Interviewees:**")
+                for interviewee in interviewees:
+                    name = interviewee["name"]
+                    role = interviewee["role"]
+                    organization = interviewee["organization"]
+                    location = interviewee["location"]
+                    st.markdown(f"* **{name}** ({role}, {organization}, {location})".replace(", -", ""))
+            else:
+                st.markdown(f"**Interviewees Not Found**")
+            st.markdown("---")
         
 
 
     with chat_col:
-        qa_df = st.session_state["chat_data"][
-            (st.session_state["chat_data"]["project_name"] == projects_selected)
-            & (
-                st.session_state["chat_data"]["sub_project_name"]
-                == subprojects_selected
-            )
-        ]
+        qa_df = chat_documents.drop_duplicates(subset=["Extracted Entries"])
         qa_information_retrieval(qa_df)
 
 
