@@ -18,8 +18,6 @@ def _extract_docs_data(
     Extract data from documents
     """
 
-    # print(f"To be extracted docs: {to_be_extrcted_docs}")
-
     n_to_be_extrcted_docs = 0
     for project_name, sub_projects in to_be_extrcted_docs.items():
         for sub_project_name, docs_paths_sub_project in sub_projects.items():
@@ -49,6 +47,7 @@ def _extract_docs_data(
                             figures_saving_path=figures_saving_path,
                             metadata_extraction_type="interview",
                             extract_figures_bool=True,
+                            relevant_pages_for_metadata_extraction=[0]
                         )
                         data_sub_project["project_name"] = project_name
                         data_sub_project["sub_project_name"] = sub_project_name
@@ -75,6 +74,7 @@ def extract_documents_text(
     model_name: str,
     inference_pipeline: str,
     api_key: str,
+    sample_bool: bool,
 ):
 
     if os.path.exists(output_path):
@@ -93,7 +93,7 @@ def extract_documents_text(
     documents_raw_data_extractor = DocumentsDataExtractor(
         inference_pipeline_name=inference_pipeline,
         model_name=model_name,
-        api_key=api_key,
+        api_key=api_key
     )
 
     to_be_extrcted_docs = defaultdict(lambda: defaultdict(list))
@@ -111,6 +111,8 @@ def extract_documents_text(
                         and os.path.splitext(f)[1] in supported_file_extensions
                         and f not in extracted_docs_names
                     ]
+                    if sample_bool:
+                        docs_paths_sub_project = docs_paths_sub_project[:2]
                     # print(f"Docs paths sub project: {docs_paths_sub_project}")
                     to_be_extrcted_docs[project_name][sub_project_name].extend(
                         docs_paths_sub_project
