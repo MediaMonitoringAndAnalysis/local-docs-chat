@@ -108,7 +108,7 @@ def _generate_chat_answer(question_input, qa_df):
     )
     
     st.write(
-        shown_context_df.to_html(escape=False, justify="left"),
+        shown_context_df.rename(columns={"relevance": "Relevance Score"}).to_html(escape=False, justify="left"),
         unsafe_allow_html=True,
     )
 
@@ -158,7 +158,7 @@ def qa_information_retrieval(qa_df):
             shown_context_df = pd.DataFrame(final_answer["context_df"])
             shown_context_df.index = shown_context_df.index + 1
             st.write(
-                shown_context_df.to_html(escape=False, justify="left"),
+                shown_context_df.rename(columns={"relevance": "Relevance Score"}).to_html(escape=False, justify="left"),
                 unsafe_allow_html=True,
             )
             

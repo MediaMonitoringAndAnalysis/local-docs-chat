@@ -46,7 +46,7 @@ def _show_most_relevant_data(
         lambda x: f"{100*x:.0f}%"
     )
     if breakdown_metadata_selected == "No Breakdown":
-        st.write(df.to_html(escape=False, justify="left"), unsafe_allow_html=True)
+        st.write(df.rename(columns={"Framework Probabilities": "Relevance Score"}).to_html(escape=False, justify="left"), unsafe_allow_html=True)
     else:
         breakdown_values = df[breakdown_metadata_selected].unique()
         for breakdown_value in breakdown_values:
@@ -54,7 +54,7 @@ def _show_most_relevant_data(
                 f"#### {breakdown_mapping_values.get(breakdown_value, breakdown_value)}"
             )
             st.write(
-                df[df[breakdown_metadata_selected] == breakdown_value].to_html(
+                df[df[breakdown_metadata_selected] == breakdown_value].rename(columns={"Framework Probabilities": "Relevance Score"}).to_html(
                     escape=False, justify="left"
                 ),
                 unsafe_allow_html=True,

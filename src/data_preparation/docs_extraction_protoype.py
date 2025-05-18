@@ -68,7 +68,7 @@ def _extract_docs_data(
     return final_data
 
 
-def extract_documents_text(
+def extract_documents_text_protoype(
     docs_folder_path: os.PathLike,
     output_path: os.PathLike,
     model_name: str,

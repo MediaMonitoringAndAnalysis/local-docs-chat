@@ -46,7 +46,7 @@ def apply_framework_classification(
         
     framework_tags = _get_tags_list(framework_data)
     
-    final_tag_to_all_tags = {tag.split("->")[-1]: tag for tag in framework_tags}
+    final_tag_to_all_tags = {"->".join(tag.split("->")[1:]): tag for tag in framework_tags}
     with open(os.path.join(os.path.dirname(framework_path), "final_tag_to_all_tags.json"), "w") as f:
         json.dump(final_tag_to_all_tags, f)
 
